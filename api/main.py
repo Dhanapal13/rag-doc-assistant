@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from .ollama_caller import rag_answer
 
 app = FastAPI(title="RAG Document Assistant")
 
@@ -21,8 +22,9 @@ def root():
     return "Welcome to RAG DOC System!!!"
 
 @app.post("/ask")
-def ask(requet: QuestionRequest):    
+def ask(request: QuestionRequest):    
+    result = rag_answer(request.question)
     return {
-        "answer": f"you asked {requet.question}"
+        "answer": {result}
     }
 

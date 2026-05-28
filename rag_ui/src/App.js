@@ -13,12 +13,30 @@ function App() {
 
     setLoading(true)
     setResponse("")
+    try{
+      const result = await fetch("http://localhost:8000/ask", {
+        method: "post",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({question})
+      })
+      const data = await result.json()
+      console.log(data)
+      setResponse(data.answer)
+
+    } catch (error){
+      console.assert(error)
+    }
+    finally{
+      setLoading(false)
+    }
   }
 
   return (
     <div className="App">
       <div style={{width: "600px", margin:"50px auto", fontFamily:"Arial"}}>
-        <h2> Question Answer UI </h2>
+        <h2> ACER Question Answer UI </h2>
         <textarea rows="4" value={question} onChange={(e)=> setQuestion(e.target.value)}
           placeholder='Enter your question here....'>
           style={{
@@ -28,7 +46,7 @@ function App() {
         <br/>
         <button onClick={askQuestion} 
           style={{padding: "10px 20px", cursor: "pointer"}}>
-            {loading?"Loading..." : "Submit"}
+            {loading?"Loading...." : "Submit"}
         </button>
         <br/>
         {
@@ -39,6 +57,9 @@ function App() {
               border: "1px solid #ccc",
               borderRadius: "5px"
             }}>
+              <strong>
+                response: <p>{response}</p>
+              </strong>
             </div>
           )
         }
