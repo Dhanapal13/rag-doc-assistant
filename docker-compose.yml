@@ -1,0 +1,44 @@
+services:  
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/sh", "-c", "sleep 5 && ollama pull llama3.2:3b"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"          # run once and exit
+
+
+  backend:
+    build: ./api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    environment:
+      - CHROMA_DB_DIR=/app/chroma_db
+      - OLLAMA_BASE_URL=http://ollama:11434
+    restart: unless-stopped
+
+  frontend:
+    build: ./rag_ui
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+
+# Top-level volumes declaration (best practice)
+volumes:
+  ollama:

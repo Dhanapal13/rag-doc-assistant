@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .ollama_caller import rag_answer
+from ollama_caller import rag_answer
 
 app = FastAPI(title="RAG Document Assistant")
 
