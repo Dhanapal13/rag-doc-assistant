@@ -27,6 +27,10 @@ How to run Kubernetes
 
     terraform init
 
+4.1 Plan
+
+    terraform plan
+
 5. Apply the configurationBash
 
     terraform apply -auto-approve

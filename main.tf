@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.27"
     }
+    external = {
+      source = "hashicorp/external"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -46,7 +50,7 @@ resource "kubernetes_persistent_volume_claim" "ollama_pvc" {
   spec {
     access_modes = ["ReadWriteOnce"]
     resources {
-      requests = { storage = "10Gi" }
+      requests = { storage = "7Gi" }
     }
     storage_class_name = "standard"
   }
@@ -117,7 +121,7 @@ resource "kubernetes_stateful_set" "ollama" {
       }
     }
 
-    volume_claim_templates {
+    volume_claim_template {
       metadata {
         name = "ollama-models"
       }
@@ -165,7 +169,7 @@ resource "kubernetes_deployment" "backend" {
       }
       spec {
         container {
-          image             = "rag-backend:latest"
+          image             = "rag-doc-assistant-backend"
           name              = "backend"
           image_pull_policy = "Never"
 
@@ -253,7 +257,7 @@ resource "kubernetes_deployment" "frontend" {
       }
       spec {
         container {
-          image             = "rag-frontend:latest"
+          image             = "rag-doc-assistant-frontend:latest"
           name              = "frontend"
           image_pull_policy = "Never"
 
@@ -309,5 +313,11 @@ output "frontend_url" {
 }
 
 data "external" "minikube_ip" {
-  program = ["minikube", "ip", "--format", "json"]
+  program = [
+    "powershell",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    "$ip = (minikube ip).Trim(); @{ip = $ip} | ConvertTo-Json -Compress"
+  ]
 }
