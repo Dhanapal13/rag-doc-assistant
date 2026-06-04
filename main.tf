@@ -2,10 +2,10 @@ terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.27"
+      version = "~> 2.33" # Updated - more stable with Deployments
     }
     external = {
-      source = "hashicorp/external"
+      source  = "hashicorp/external"
       version = "~> 2.0"
     }
   }
@@ -28,6 +28,7 @@ resource "kubernetes_namespace" "rag" {
 }
 
 # ====================== PERSISTENT VOLUMES ======================
+# ChromaDB PVC (used by backend)
 resource "kubernetes_persistent_volume_claim" "chroma_pvc" {
   metadata {
     name      = "chroma-db-pvc"
@@ -36,27 +37,15 @@ resource "kubernetes_persistent_volume_claim" "chroma_pvc" {
   spec {
     access_modes = ["ReadWriteOnce"]
     resources {
-      requests = { storage = "5Gi" }
+      requests = {
+        storage = "5Gi"
+      }
     }
     storage_class_name = "standard"
   }
 }
 
-resource "kubernetes_persistent_volume_claim" "ollama_pvc" {
-  metadata {
-    name      = "ollama-models-pvc"
-    namespace = kubernetes_namespace.rag.metadata[0].name
-  }
-  spec {
-    access_modes = ["ReadWriteOnce"]
-    resources {
-      requests = { storage = "7Gi" }
-    }
-    storage_class_name = "standard"
-  }
-}
-
-# ====================== OLLAMA ======================
+# ====================== OLLAMA (StatefulSet) ======================
 resource "kubernetes_stateful_set" "ollama" {
   metadata {
     name      = "ollama"
@@ -68,24 +57,29 @@ resource "kubernetes_stateful_set" "ollama" {
     replicas     = 1
 
     selector {
-      match_labels = { app = "ollama" }
+      match_labels = {
+        app = "ollama"
+      }
     }
 
     template {
       metadata {
-        labels = { app = "ollama" }
+        labels = {
+          app = "ollama"
+        }
       }
+
       spec {
         container {
-          image             = "ollama/ollama:latest"
           name              = "ollama"
+          image             = "ollama/ollama:latest"
           image_pull_policy = "IfNotPresent"
 
           port {
             container_port = 11434
           }
 
-          # Health checks for Ollama
+          # Health checks
           startup_probe {
             http_get {
               path = "/api/tags"
@@ -114,20 +108,25 @@ resource "kubernetes_stateful_set" "ollama" {
           }
 
           volume_mount {
-            mount_path = "/root/.ollama"
             name       = "ollama-models"
+            mount_path = "/root/.ollama"
           }
         }
       }
     }
 
+    # This creates a PVC automatically (e.g. ollama-ollama-0)
     volume_claim_template {
       metadata {
         name = "ollama-models"
       }
       spec {
         access_modes = ["ReadWriteOnce"]
-        resources { requests = { storage = "10Gi" } }
+        resources {
+          requests = {
+            storage = "10Gi"
+          }
+        }
         storage_class_name = "standard"
       }
     }
@@ -140,7 +139,9 @@ resource "kubernetes_service" "ollama" {
     namespace = kubernetes_namespace.rag.metadata[0].name
   }
   spec {
-    selector = { app = "ollama" }
+    selector = {
+      app = "ollama"
+    }
     port {
       port        = 11434
       target_port = 11434
@@ -160,17 +161,22 @@ resource "kubernetes_deployment" "backend" {
     replicas = 1
 
     selector {
-      match_labels = { app = "backend" }
+      match_labels = {
+        app = "backend"
+      }
     }
 
     template {
       metadata {
-        labels = { app = "backend" }
+        labels = {
+          app = "backend"
+        }
       }
+
       spec {
         container {
-          image             = "rag-doc-assistant-backend"
           name              = "backend"
+          image             = "rag-doc-assistant-backend"
           image_pull_policy = "Never"
 
           port {
@@ -181,15 +187,16 @@ resource "kubernetes_deployment" "backend" {
             name  = "CHROMA_DB_DIR"
             value = "/app/chroma_db"
           }
+
           env {
             name  = "OLLAMA_BASE_URL"
             value = "http://ollama:11434"
           }
 
-          # Health checks for Backend (FastAPI)
+          # Health checks
           readiness_probe {
             http_get {
-              path = "/docs"          # or "/health" if you have a health endpoint
+              path = "/docs"
               port = 8000
             }
             initial_delay_seconds = 10
@@ -206,8 +213,8 @@ resource "kubernetes_deployment" "backend" {
           }
 
           volume_mount {
-            mount_path = "/app/chroma_db"
             name       = "chroma-storage"
+            mount_path = "/app/chroma_db"
           }
         }
 
@@ -228,7 +235,9 @@ resource "kubernetes_service" "backend" {
     namespace = kubernetes_namespace.rag.metadata[0].name
   }
   spec {
-    selector = { app = "backend" }
+    selector = {
+      app = "backend"
+    }
     port {
       port        = 8000
       target_port = 8000
@@ -248,17 +257,22 @@ resource "kubernetes_deployment" "frontend" {
     replicas = 1
 
     selector {
-      match_labels = { app = "frontend" }
+      match_labels = {
+        app = "frontend"
+      }
     }
 
     template {
       metadata {
-        labels = { app = "frontend" }
+        labels = {
+          app = "frontend"
+        }
       }
+
       spec {
         container {
-          image             = "rag-doc-assistant-frontend:latest"
           name              = "frontend"
+          image             = "rag-doc-assistant-frontend:latest"
           image_pull_policy = "Never"
 
           port {
@@ -270,7 +284,7 @@ resource "kubernetes_deployment" "frontend" {
             value = "http://backend-service.${kubernetes_namespace.rag.metadata[0].name}.svc.cluster.local:8000"
           }
 
-          # Simple TCP probe for React (no HTTP health endpoint usually)
+          # TCP probe (React dev server doesn't have HTTP health endpoint by default)
           readiness_probe {
             tcp_socket {
               port = 3000
@@ -289,6 +303,13 @@ resource "kubernetes_deployment" "frontend" {
         }
       }
     }
+
+    # Workaround for occasional Kubernetes provider identity change bug
+    lifecycle {
+      ignore_changes = [
+        spec[0].template[0].spec[0].container[0].env
+      ]
+    }
   }
 }
 
@@ -298,7 +319,9 @@ resource "kubernetes_service" "frontend" {
     namespace = kubernetes_namespace.rag.metadata[0].name
   }
   spec {
-    selector = { app = "frontend" }
+    selector = {
+      app = "frontend"
+    }
     port {
       port        = 3000
       target_port = 3000
@@ -308,16 +331,14 @@ resource "kubernetes_service" "frontend" {
 }
 
 # ====================== OUTPUT ======================
-output "frontend_url" {
-  value = "http://${data.external.minikube_ip.result.ip}:${kubernetes_service.frontend.spec[0].port[0].node_port}"
-}
-
 data "external" "minikube_ip" {
   program = [
-    "powershell",
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    "$ip = (minikube ip).Trim(); @{ip = $ip} | ConvertTo-Json -Compress"
+    "cmd.exe",
+    "/c",
+    "for /f \"tokens=*\" %i in ('minikube ip') do @echo {\"ip\":\"%i\"}"
   ]
+}
+
+output "frontend_url" {
+  value = "http://${data.external.minikube_ip.result.ip}:${kubernetes_service.frontend.spec[0].port[0].node_port}"
 }

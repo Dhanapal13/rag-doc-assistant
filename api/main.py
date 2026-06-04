@@ -1,8 +1,10 @@
 # Fast API Services
+from typing import Literal
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ollama_caller import rag_answer
+from api.rag_service import rag_service
 
 app = FastAPI(title="RAG Document Assistant")
 
@@ -16,15 +18,20 @@ app.add_middleware(CORSMiddleware,
 
 class QuestionRequest(BaseModel):
     question: str
+    backend: Literal["st", "hf"] = "st"  # Default to HuggingFace if not specified
 
 @app.get("/")
 def root():
     return "Welcome to RAG DOC System!!!"
 
 @app.post("/ask")
-def ask(request: QuestionRequest):    
-    result = rag_answer(request.question)
+def ask(request: QuestionRequest):
+    if request.backend == "st":
+        result = rag_service.query_sentence_transformer(request.question)
+    else:
+        result = rag_service.query_hf_index(request.question)
+
     return {
-        "answer": {result}
+        "answer": result, "backend": request.backend
     }
 
