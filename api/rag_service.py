@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 # llama_index imports
-from llama_index.core import Settings, VectorStoreIndex, StorageContext, SimpleDirectoryReader
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core import Settings, VectorStoreIndex, StorageContext, SimpleDirectoryReader, PromptTemplate
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.llms.ollama import Ollama
 import chromadb
@@ -60,8 +59,24 @@ class RAGService:
     
     def query_hf_index(self, query: str) -> List[str]:
         index = self.get_hf_index()
+
+        qa_template = PromptTemplate(
+                    """Answer based ONLY on the context below. 
+                        If you don't have enough information, say "I don't have enough information."
+
+                        Context information is below:
+                        ---------------------
+                        {context_str}
+                        ---------------------
+
+                        Question: {query_str}
+                        Answer: """
+                                )
         query_engine = index.as_query_engine(
-            llm=Ollama(model="llama3.2:3b", request_timeout=300, similarity_top_k=4)
+            llm=Ollama(model="llama3.2:3b", 
+                       text_qa_template=qa_template,
+                       request_timeout=300, 
+                       similarity_top_k=4)
         )
         response = query_engine.query(query)
         return str(response).split("\n")
