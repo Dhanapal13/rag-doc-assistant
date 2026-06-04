@@ -17,11 +17,7 @@ How to run Kubernetes
 
 3. Build your Docker images inside MinikubeBash
 
-    cd rag-doc-assistant          # go to root of your project
-    docker compose build
-    # or manually:
-    # docker build -t rag-backend:latest ./api
-    # docker build -t rag-frontend:latest ./rag_ui
+    cd rag-doc-assistant          
 
 4. Initialize TerraformBash
 
