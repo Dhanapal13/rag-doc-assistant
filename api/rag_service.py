@@ -15,6 +15,9 @@ from sentence_transformers import SentenceTransformer
 import chromadb as st_chromadb
 import ollama
 
+LLAMA_MODEL = "llama3.2:3b"
+GEMMA_MODEL = "gemma2:2b"
+
 class RAGService:
     def __init__(self):
         self.hf_index = None
@@ -57,7 +60,7 @@ class RAGService:
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         return VectorStoreIndex.from_vector_store(vector_store=vector_store, embed_model=Settings.embed_model)
     
-    def query_hf_index(self, query: str) -> List[str]:
+    def query_hf_index(self, query: str, model: Literal["llama", "gemma"] = "llama") -> List[str]:
         index = self.get_hf_index()
 
         qa_template = PromptTemplate(
@@ -73,7 +76,7 @@ class RAGService:
                         Answer: """
                                 )
         query_engine = index.as_query_engine(
-            llm=Ollama(model="llama3.2:3b", 
+            llm=Ollama(model= model == "llama" and LLAMA_MODEL or GEMMA_MODEL, 
                        text_qa_template=qa_template,
                        request_timeout=300, 
                        similarity_top_k=4)
@@ -105,7 +108,8 @@ class RAGService:
         )
         print("PDF ingestion with SentenceTransformer embedding completed")
 
-    def query_sentence_transformer(self, query: str, n_results: int = 4) -> List[str]:
+    def query_sentence_transformer(self, query: str, model: Literal["llama", "gemma"] = "llama",
+                                    n_results: int = 4) -> List[str]:
         print(f"Querying SentenceTransformer collection for query: {query}")
         query_embedding = self.st_embedder.encode([query]).tolist()
         result = self.st_collection.query(query_embeddings=query_embedding, n_results=n_results)
@@ -116,7 +120,7 @@ class RAGService:
         prompt = f"""Answer based ONLY on the context below. If unsure, say no.
                     Context: {context}
                     Question: {query}"""
-        response = ollama_client.chat(model="llama3.2:3b", messages=[{"role": "user", "content": prompt}])
+        response = ollama_client.chat(model= model == "llama" and LLAMA_MODEL or GEMMA_MODEL, messages=[{"role": "user", "content": prompt}])
         return response["message"]["content"].split("\n")
 
 rag_service = RAGService()

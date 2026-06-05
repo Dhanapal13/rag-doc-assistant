@@ -19,6 +19,7 @@ app.add_middleware(CORSMiddleware,
 class QuestionRequest(BaseModel):
     question: str
     backend: Literal["st", "hf"] = "st"  # Default to HuggingFace if not specified
+    model: Literal["llama", "gemma"] = "llama"  # Default LLM model to llama
 
 @app.get("/")
 def root():
@@ -27,11 +28,11 @@ def root():
 @app.post("/ask")
 def ask(request: QuestionRequest):
     if request.backend == "st":
-        result = rag_service.query_sentence_transformer(request.question)
+        result = rag_service.query_sentence_transformer(request.question, request.model)
     else:
-        result = rag_service.query_hf_index(request.question)
+        result = rag_service.query_hf_index(request.question, request.model)
 
     return {
-        "answer": result, "backend": request.backend
+        "answer": result, "backend": request.backend, "model": request.model
     }
 
