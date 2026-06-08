@@ -1,4 +1,5 @@
-# Fast API Services
+# Fast API Services 
+# Ollama RAG Service
 from typing import Literal
 
 from fastapi import FastAPI
