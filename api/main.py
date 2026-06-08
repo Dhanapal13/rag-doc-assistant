@@ -1,12 +1,11 @@
 # Fast API Services 
-# Ollama RAG Service
 from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from api.rag_service import rag_service
-
+# Add App
 app = FastAPI(title="RAG Document Assistant")
 
 # enable CORS
