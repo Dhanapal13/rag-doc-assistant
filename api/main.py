@@ -1,4 +1,4 @@
-# Fast API Services
+# Fast API Services - Using Ollama
 from typing import Literal
 
 from fastapi import FastAPI
