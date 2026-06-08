@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from api.rag_service import rag_service
-# Add App
+# Add App object
 app = FastAPI(title="RAG Document Assistant")
 
 # enable CORS
