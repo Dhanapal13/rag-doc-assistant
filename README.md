@@ -1,5 +1,5 @@
 # rag-doc-assistant
-A document assistant using RAG and vector DB
+A document assistant using RAG, Ollama, LlamaIndex, Chroma DB
 
 A document assistant using Retrieval-Augmented Generation (RAG) and a local vector database. Ask natural-language questions about a PDF and receive answers grounded exclusively in that document — no hallucinations from general knowledge.
 
