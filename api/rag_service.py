@@ -14,9 +14,12 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 import chromadb as st_chromadb
 import ollama
+from api.config import settings
+from api.metrics import TOTAL_QUERY_LATENCY
+import structlog
 
-LLAMA_MODEL = "llama3.2:3b"
-GEMMA_MODEL = "gemma2:2b"
+LLAMA_MODEL = settings.default_llm_model # "llama3.2:3b"
+GEMMA_MODEL = settings.gemma_model
 
 class RAGService:
     def __init__(self):
@@ -24,7 +27,7 @@ class RAGService:
         self.st_embedder = None
         self.st_client = None
         self.st_collection = None
-
+        self.logger = structlog.get_logger()
         self._initialize_hf_llamaindex()
         self._initialize_sentence_transformer()
 
@@ -37,13 +40,13 @@ class RAGService:
 
         # This is the safest way - set it directly on the global Settings
         llama_index.core.Settings.embed_model = HuggingFaceEmbedding(
-            model_name="BAAI/bge-small-en-v1.5"
+            model_name=settings.embedding_model # "BAAI/bge-small-en-v1.5"
         )
 
     def ingest_pdf_with_hf_llamaindex(self, path: str):
         self._initialize_hf_llamaindex()
         print(f"Ingesting PDF with HuggingFace embedding for llama_index: {path}")
-        chroma_client = chromadb.PersistentClient(path=os.getenv("CHROMA_DB_PATH","/app/chroma_db"))
+        chroma_client = chromadb.PersistentClient(path=os.getenv("CHROMA_DB_PATH", settings.chroma_db_path))
         chroma_collection = chroma_client.get_or_create_collection("hf_docs")
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
@@ -55,7 +58,7 @@ class RAGService:
 
     def get_hf_index(self) -> VectorStoreIndex:
         self._initialize_hf_llamaindex()
-        chroma_client = chromadb.PersistentClient(path=os.getenv("CHROMA_DB_PATH","/app/chroma_db"))
+        chroma_client = chromadb.PersistentClient(path=os.getenv("CHROMA_DB_PATH", settings.chroma_db_path))
         chroma_collection = chroma_client.get_or_create_collection("hf_docs")
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         return VectorStoreIndex.from_vector_store(vector_store=vector_store, embed_model=Settings.embed_model)
@@ -81,7 +84,8 @@ class RAGService:
                        request_timeout=300, 
                        similarity_top_k=4)
         )
-        response = query_engine.query(query)
+        with TOTAL_QUERY_LATENCY.labels(backend="llamaindex_hf").time():
+            response = query_engine.query(query)
         return str(response).split("\n")
 
     def _initialize_sentence_transformer(self):
@@ -110,7 +114,7 @@ class RAGService:
 
     def query_sentence_transformer(self, query: str, model: Literal["llama", "gemma"] = "llama",
                                     n_results: int = 4) -> List[str]:
-        print(f"Querying SentenceTransformer collection for query: {query}")
+        self.logger.info("rag_query_started", question_length=len(query), model=model)
         query_embedding = self.st_embedder.encode([query]).tolist()
         result = self.st_collection.query(query_embeddings=query_embedding, n_results=n_results)
         context_chunks = result["documents"][0] if result.get("documents") else []
