@@ -14,8 +14,8 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 import chromadb as st_chromadb
 import ollama
-from api.config import settings
-from api.metrics import TOTAL_QUERY_LATENCY
+from config import settings
+from metrics import TOTAL_QUERY_LATENCY
 import structlog
 
 LLAMA_MODEL = settings.default_llm_model # "llama3.2:3b"
@@ -84,7 +84,7 @@ class RAGService:
                        request_timeout=300, 
                        similarity_top_k=4)
         )
-        with TOTAL_QUERY_LATENCY.labels(backend="llamaindex_hf").time():
+        with TOTAL_QUERY_LATENCY.labels(backend="llamaindex_hf", model="model").time():
             response = query_engine.query(query)
         return str(response).split("\n")
 
@@ -124,7 +124,10 @@ class RAGService:
         prompt = f"""Answer based ONLY on the context below. If unsure, say no.
                     Context: {context}
                     Question: {query}"""
-        response = ollama_client.chat(model= model == "llama" and LLAMA_MODEL or GEMMA_MODEL, messages=[{"role": "user", "content": prompt}])
+        
+        with TOTAL_QUERY_LATENCY.labels(backend="sentence_transformer", model=model).time():
+            response = ollama_client.chat(model= model == "llama" and LLAMA_MODEL or GEMMA_MODEL, 
+                                          messages=[{"role": "user", "content": prompt}])
         return response["message"]["content"].split("\n")
 
 rag_service = RAGService()

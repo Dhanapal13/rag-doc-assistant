@@ -4,11 +4,11 @@ from typing import Literal
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from api.rag_service import rag_service
-from api.config import settings
-from api.middleware import RequestIDMiddleware
+from rag_service import rag_service
+from config import settings
+from middleware import RequestIDMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
-from api.metrics import RAG_QUERIES_TOTAL
+from metrics import RAG_QUERIES_TOTAL
 import structlog
 
 # Add App object
@@ -23,7 +23,6 @@ app.add_middleware(CORSMiddleware,
                    allow_headers=["*"]
                    )
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 class QuestionRequest(BaseModel):
     question: str

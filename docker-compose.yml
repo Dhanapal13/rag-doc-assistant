@@ -1,44 +1,77 @@
-services:  
+version: '3.8'
+
+services:
   ollama:
     image: ollama/ollama:latest
+    container_name: ollama
     ports:
       - "11434:11434"
     volumes:
-      - ollama:/root/.ollama
+      - ollama_data:/root/.ollama
     restart: unless-stopped
 
   ollama-init:
     image: ollama/ollama:latest
     volumes:
-      - ollama:/root/.ollama
+      - ollama_data:/root/.ollama
     depends_on:
       - ollama
-    entrypoint: ["/bin/sh", "-c", "sleep 5 && ollama pull llama3.2:3b"]
+    entrypoint: ["/bin/sh", "-c", "sleep 10 && ollama pull llama3.2:3b && ollama pull gemma2:2b"]
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    restart: "no"          # run once and exit
-
+    restart: "no"
 
   backend:
-    build: ./api
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+    container_name: backend
     ports:
       - "8000:8000"
     volumes:
       - ./chroma_db:/app/chroma_db
     environment:
-      - CHROMA_DB_DIR=/app/chroma_db
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
+      - CHROMA_DB_PATH=/app/chroma_db
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
   frontend:
     build: ./rag_ui
+    container_name: frontend
     ports:
       - "3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
 
-
-# Top-level volumes declaration (best practice)
 volumes:
-  ollama:
+  ollama_data:
+  prometheus_data:
+  grafana_data:
