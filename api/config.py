@@ -14,5 +14,7 @@ class Settings(BaseSettings):
     max_question_length: int = 1000
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
+    guardrail_blocklist_topics: list[str] = ["politics", "violence", "adult content"]
+    guardrail_groundedness_threshold: float = 0.5
 
 settings = Settings()
