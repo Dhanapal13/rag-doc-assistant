@@ -5,7 +5,9 @@ import uuid
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from rag_service import rag_service
+from api.rag_service_sf import rag_service_sf
+from api.rag_service_hf import rag_service_hf
+
 from config import settings
 from middleware import RequestIDMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -89,9 +91,9 @@ async def ingest(file: UploadFile = File(...)):
 def ask(request: QuestionRequest):
 
     if request.backend == "st":
-        result = rag_service.query_sentence_transformer(request.question, request.model)
+        result = rag_service_sf.query_sentence_transformer(request.question, request.model)
     else:
-        result = rag_service.query_hf_index(request.question, request.model)
+        result = rag_service_hf.query_hf_index(request.question, request.model)
 
     return {
         "answer": result, "backend": request.backend, "model": request.model
