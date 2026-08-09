@@ -1,11 +1,11 @@
-FROM python:3.14.5-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY api/ .
 
 # Ensure chroma directory exists
 RUN mkdir -p /app/chroma_db
